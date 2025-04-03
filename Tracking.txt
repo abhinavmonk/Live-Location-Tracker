@@ -1,0 +1,94 @@
+import React, { useState, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Polyline, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+
+const EmployeeTracking = () => {
+  const [locations, setLocations] = useState([]);
+  const [routes, setRoutes] = useState({});
+  const [totalDistance, setTotalDistance] = useState({});
+
+  useEffect(() => {
+    // Fetch employee location data from backend
+    const fetchLocations = async () => {
+      const response = await fetch("https://your-backend-url.com/api/locations");
+      const data = await response.json();
+      setLocations(data);
+
+      // Organize routes by employee ID and calculate distance
+      const routeData = {};
+      const distanceData = {};
+      data.forEach((loc, index) => {
+        if (!routeData[loc.employee]) {
+          routeData[loc.employee] = [];
+          distanceData[loc.employee] = 0;
+        }
+        routeData[loc.employee].push([loc.lat, loc.lng]);
+
+        if (index > 0) {
+          const prevLoc = data[index - 1];
+          if (prevLoc.employee === loc.employee) {
+            const dist = getDistance(prevLoc.lat, prevLoc.lng, loc.lat, loc.lng);
+            distanceData[loc.employee] += dist;
+          }
+        }
+      });
+      setRoutes(routeData);
+      setTotalDistance(distanceData);
+    };
+
+    fetchLocations();
+  }, []);
+
+  // Haversine formula to calculate distance between two points
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of Earth in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Function to fetch WhatsApp location data (automated backend integration)
+  useEffect(() => {
+    const fetchWhatsAppLocations = async () => {
+      const response = await fetch("https://your-backend-url.com/api/whatsapp-locations");
+      const data = await response.json();
+      setLocations((prev) => [...prev, ...data]);
+    };
+
+    const interval = setInterval(fetchWhatsAppLocations, 30000); // Fetch every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="h-screen w-full">
+      <h1 className="text-center text-2xl font-bold p-4">Employee Location Tracking</h1>
+      <MapContainer center={[26.85, 80.95]} zoom={10} className="h-[80vh] w-full">
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        {locations.map((loc, index) => (
+          <Marker key={index} position={[loc.lat, loc.lng]}>
+            <Popup>
+              {loc.employee} - {new Date(loc.timestamp).toLocaleString()} <br />
+              {loc.address} <br />
+              Distance Traveled Today: {totalDistance[loc.employee]?.toFixed(2)} km
+            </Popup>
+          </Marker>
+        ))}
+        {Object.keys(routes).map((emp, index) => (
+          <Polyline key={index} positions={routes[emp]} color="blue" />
+        ))}
+      </MapContainer>
+    </div>
+  );
+};
+
+export default EmployeeTracking;

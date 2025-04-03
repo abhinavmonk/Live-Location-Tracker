@@ -1,0 +1,58 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+require("dotenv").config();
+
+const app = express();
+app.use(express.json());
+app.use(cors({
+  origin: "http://localhost:3000", // Update this with frontend URL when deployed
+  credentials: true,
+}));
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+const LocationSchema = new mongoose.Schema({
+  employee: String,
+  lat: Number,
+  lng: Number,
+  timestamp: Date,
+  address: String,
+});
+const Location = mongoose.model("Location", LocationSchema);
+
+// API to fetch locations
+app.get("/api/locations", async (req, res) => {
+  const locations = await Location.find();
+  res.json(locations);
+});
+
+// API to fetch WhatsApp extracted locations (mock data for now)
+app.get("/api/whatsapp-locations", async (req, res) => {
+  // In actual implementation, integrate WhatsApp API to extract location messages
+  const dummyData = [
+    {
+      employee: "John Doe",
+      lat: 26.85,
+      lng: 80.95,
+      timestamp: new Date(),
+      address: "Lucknow, UP",
+    },
+  ];
+  res.json(dummyData);
+});
+
+// API to store new location data
+app.post("/api/locations", async (req, res) => {
+  const { employee, lat, lng, timestamp, address } = req.body;
+  const newLocation = new Location({ employee, lat, lng, timestamp, address });
+  await newLocation.save();
+  res.json({ message: "Location stored successfully" });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
